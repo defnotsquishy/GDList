@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+*.local
+
+# Generated AREDL data snapshot
+public/aredl-levels.json
+
+# Local Netlify folder
+.netlify
