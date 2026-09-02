@@ -11,6 +11,11 @@
     "build:gdl": "node scripts/fetch-gdl.mjs",
     "build": "npm run build:aredl && npm run build:gdl && vite build",
     "build:github": "npm run build:aredl && npm run build:gdl && vite build --mode github",
+    "build:beta": "npm run build:aredl && npm run build:gdl && node scripts/build-beta.mjs",
+    "test:beta": "node --test scripts/beta.test.mjs",
+    "preview:beta": "vite preview --base /GDList/ --outDir dist-beta",
+    "predeploy:beta": "npm run build:beta && npm run test:beta",
+    "deploy:beta": "gh-pages -d dist-beta -r https://github.com/defnotsquishy/GDList.git --dotfiles --nojekyll",
     "preview": "vite preview",
     "predeploy": "npm run build:github",
     "deploy": "gh-pages -d dist"

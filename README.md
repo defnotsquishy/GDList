@@ -16,7 +16,20 @@ The app shows a setup screen when required Firebase values are missing instead o
 
 ## Languages
 
-The public interface supports English, Russian, and Simplified Chinese. The language selector is available in the header and saves the visitor's choice on their device. Player names, level names, and other community-created content are kept exactly as submitted.
+The public interface supports English and Russian. The language selector is on the homepage below the social links, outside the navbar, and saves the visitor's choice on their device. Player names, level names, and other community-created content are kept exactly as submitted.
+
+## Public beta
+
+The beta is hosted at **https://defnotsquishy.github.io/GDList/** from the `beta-site` source branch. It includes country rankings, the English/Russian homepage switch, and one-time country selection. A beta notice explains that this is a preview, with a link back to the main site.
+
+The beta uses the existing Firebase project. It is **not an isolated data sandbox**: accounts and records are shared, and submissions, profile edits, and authorized moderation actions affect live data. Do not create fake records or test destructive actions here. This deployment does not change roles, database rules, or the main website.
+
+- `npm run build:beta` builds to `dist-beta/` using the ignored `.env.github.local` configuration and the correct `/GDList/` asset base.
+- `npm run test:beta` checks beta metadata, translations, asset paths, and direct-link fallback.
+- `npm run preview:beta` opens a local preview of that build.
+- `npm run deploy:beta` builds, checks, and publishes **only** to `defnotsquishy/GDList`'s `gh-pages` branch. This replaces the previous preview there, not Ksois's website.
+
+The beta build is marked `noindex`, excludes the main site's `CNAME` and SEO files, and serves the app from `404.html` so shared deep links and refreshes keep their route. Normal builds do not show the beta notice.
 
 ## Preserving existing data
 
@@ -27,10 +40,10 @@ Deploying the included security rules changes access permissions only; it does n
 ## Builds
 
 - `npm run build` creates a root-path build for Netlify or another SPA host.
-- `npm run build:github` creates a `/GDList/` build for GitHub Pages.
-- `npm run deploy` publishes the GitHub Pages build through `gh-pages`.
+- `npm run build:github` loads the GitHub environment configuration and retains the main site's root-path custom-domain build.
+- `npm run deploy` publishes that main-site build through `gh-pages`. Use `npm run deploy:beta` instead for the defnotsquishy preview.
 
-Netlify uses the included SPA rewrite. GitHub Pages uses `public/404.html` plus an early redirect-restoration script so direct links and refreshes keep their route.
+Netlify uses the included SPA rewrite. The main GitHub Pages fallback sends visitors to the custom domain; the separate beta build uses its own direct-link fallback.
 
 ## Firebase security
 
