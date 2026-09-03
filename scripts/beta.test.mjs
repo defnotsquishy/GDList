@@ -43,4 +43,6 @@ test('English and Russian have matching translation keys', () => {
     typeof item === 'string' ? [`${prefix}${key}`] : keys(item, `${prefix}${key}.`))
   assert.deepEqual(LANGUAGES.map(language => language.code), ['en', 'ru'])
   assert.deepEqual(keys(TRANSLATIONS.en).sort(), keys(TRANSLATIONS.ru).sort())
+  assert.equal(TRANSLATIONS.en.home.devLogTitle, 'Developer Log')
+  assert.equal(TRANSLATIONS.ru.home.devLogTitle, 'Дневник разработчиков')
 })
