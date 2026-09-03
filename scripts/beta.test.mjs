@@ -7,11 +7,11 @@ const output = new URL('../dist-beta/', import.meta.url)
 const readOutput = path => readFileSync(new URL(path, output), 'utf8')
 const index = readOutput('index.html')
 
-test('beta has separate branding and is not indexed as the live site', () => {
-  assert.match(index, /<title>Basement List Beta - GD Community<\/title>/)
+test('preview uses normal public branding and is not indexed as the live site', () => {
+  assert.match(index, /<title>Basement List - GD Community<\/title>/)
+  assert.doesNotMatch(index, /Basement List Beta/)
   assert.match(index, /name="robots" content="noindex, nofollow"/)
   assert.match(index, /property="og:url" content="https:\/\/defnotsquishy\.github\.io\/GDList\/"/)
-  assert.match(index, /shares accounts and records with the main site/)
   assert.match(readOutput('robots.txt'), /Disallow: \/\n/)
   for (const file of ['CNAME', 'sitemap.xml', 'google5fdd41fa2fd9bff9.html']) {
     assert.equal(existsSync(new URL(file, output)), false, `${file} must not be deployed to the fork`)
@@ -38,11 +38,9 @@ test('beta does not require country selection', () => {
   assert.doesNotMatch(javascript, /Country victor sync was deferred|country-setup-description/)
 })
 
-test('English and Russian have matching translation keys including the beta notice', () => {
+test('English and Russian have matching translation keys', () => {
   const keys = (value, prefix = '') => Object.entries(value).flatMap(([key, item]) =>
     typeof item === 'string' ? [`${prefix}${key}`] : keys(item, `${prefix}${key}.`))
   assert.deepEqual(LANGUAGES.map(language => language.code), ['en', 'ru'])
   assert.deepEqual(keys(TRANSLATIONS.en).sort(), keys(TRANSLATIONS.ru).sort())
-  assert.ok(TRANSLATIONS.en.beta.sharedData)
-  assert.ok(TRANSLATIONS.ru.beta.sharedData)
 })

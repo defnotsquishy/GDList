@@ -22,7 +22,6 @@ import {
 } from 'lucide-react'
 import Avatar from '../components/ui/Avatar'
 import LanguageSelector from '../components/layout/LanguageSelector'
-import BetaNotice from '../components/layout/BetaNotice'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import { loadUsers, loadCommunityLevels } from '../services/readCache'
@@ -187,8 +186,6 @@ export default function Home() {
       <div className={styles.depthMarker} aria-hidden="true">
         <span>01</span><span>02</span><span>03</span><span>04</span>
       </div>
-
-      {import.meta.env.VITE_BETA_SITE === 'true' ? <BetaNotice /> : null}
 
       <section className={styles.hero}>
         <motion.div

@@ -4,11 +4,6 @@ export const LANGUAGES = [
 ]
 
 const en = {
-  beta: {
-    title: 'Basement List beta by defnotsquishy',
-    sharedData: 'Test the latest features here. Accounts and records are shared with the main site; submissions and profile changes are real.',
-    liveSite: 'Go to main site',
-  },
   language: { label: 'Language', select: 'Choose language' },
   nav: {
     primary: 'Primary navigation', home: 'Home', mainList: 'Main List', communityList: 'Community List',
@@ -82,11 +77,6 @@ const en = {
 }
 
 const ru = {
-  beta: {
-    title: 'Бета-версия Basement List от defnotsquishy',
-    sharedData: 'Проверяйте новые функции здесь. Аккаунты и рекорды общие с основным сайтом; отправленные рекорды и изменения профиля сохраняются на нём.',
-    liveSite: 'На основной сайт',
-  },
   language: { label: 'Язык', select: 'Выбрать язык' },
   nav: {
     primary: 'Основная навигация', home: 'Главная', mainList: 'Основной список', communityList: 'Список сообщества',

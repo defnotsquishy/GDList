@@ -6,8 +6,8 @@ import { build, loadEnv } from 'vite'
 const root = fileURLToPath(new URL('..', import.meta.url))
 const output = resolve(root, 'dist-beta')
 const betaUrl = 'https://defnotsquishy.github.io/GDList/'
-const betaTitle = 'Basement List Beta - GD Community'
-const betaDescription = 'Test the latest Basement List features on defnotsquishy. This beta shares accounts and records with the main site.'
+const betaTitle = 'Basement List - GD Community'
+const betaDescription = 'Basement List country rankings, records, player profiles, and English and Russian translations.'
 const env = loadEnv('github', root, 'VITE_FIREBASE_')
 const required = ['API_KEY', 'AUTH_DOMAIN', 'PROJECT_ID', 'STORAGE_BUCKET', 'MESSAGING_SENDER_ID', 'APP_ID']
 const missing = required.map(key => `VITE_FIREBASE_${key}`).filter(key => !env[key]?.trim())
@@ -31,7 +31,7 @@ await build({
           .replace(/(<meta (?:name|property)="(?:og:title|twitter:title)" content=")[^"]*/g, `$1${betaTitle}`)
           .replace(/(<meta (?:name|property)="(?:description|og:description|twitter:description)" content=")[^"]*/g, `$1${betaDescription}`)
           .replace(/(<meta property="og:url" content=")[^"]*/, `$1${betaUrl}`)
-          .replace(/(<meta property="og:site_name" content=")[^"]*/, '$1Basement List Beta'),
+          .replace(/(<meta property="og:site_name" content=")[^"]*/, '$1Basement List'),
         tags: [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex, nofollow' }, injectTo: 'head' }],
       }
     },

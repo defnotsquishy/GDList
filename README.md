@@ -20,7 +20,7 @@ The public interface supports English and Russian. The language selector is on t
 
 ## Public beta
 
-The beta is hosted at **https://defnotsquishy.github.io/GDList/** from the `beta-site` source branch. It includes country rankings and the English/Russian homepage switch, but does not force visitors through country selection. A beta notice explains that this is a preview, with a link back to the main site.
+The beta is hosted at **https://defnotsquishy.github.io/GDList/** from the `beta-site` source branch. It includes country rankings and the English/Russian homepage switch, but does not force visitors through country selection. It uses the normal Basement List branding without a visible beta banner.
 
 The beta uses the existing Firebase project. It is **not an isolated data sandbox**: accounts and records are shared, and submissions, profile edits, and authorized moderation actions affect live data. Do not create fake records or test destructive actions here. This deployment does not change roles, database rules, or the main website.
 
@@ -29,7 +29,7 @@ The beta uses the existing Firebase project. It is **not an isolated data sandbo
 - `npm run preview:beta` opens a local preview of that build.
 - `npm run deploy:beta` builds, checks, and publishes **only** to `defnotsquishy/GDList`'s `gh-pages` branch. This replaces the previous preview there, not Ksois's website.
 
-The beta build is marked `noindex`, excludes the main site's `CNAME` and SEO files, and serves the app from `404.html` so shared deep links and refreshes keep their route. Normal builds do not show the beta notice.
+The beta build is marked `noindex`, excludes the main site's `CNAME` and SEO files, and serves the app from `404.html` so shared deep links and refreshes keep their route.
 
 ## Preserving existing data
 
