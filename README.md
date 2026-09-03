@@ -20,7 +20,7 @@ The public interface supports English and Russian. The language selector is on t
 
 ## Public beta
 
-The beta is hosted at **https://defnotsquishy.github.io/GDList/** from the `beta-site` source branch. It includes country rankings, the English/Russian homepage switch, and one-time country selection. A beta notice explains that this is a preview, with a link back to the main site.
+The beta is hosted at **https://defnotsquishy.github.io/GDList/** from the `beta-site` source branch. It includes country rankings and the English/Russian homepage switch, but does not force visitors through country selection. A beta notice explains that this is a preview, with a link back to the main site.
 
 The beta uses the existing Firebase project. It is **not an isolated data sandbox**: accounts and records are shared, and submissions, profile edits, and authorized moderation actions affect live data. Do not create fake records or test destructive actions here. This deployment does not change roles, database rules, or the main website.
 

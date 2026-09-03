@@ -55,6 +55,7 @@ const queryClient = new QueryClient({
 const routerBase = import.meta.env.BASE_URL === '/'
   ? undefined
   : import.meta.env.BASE_URL.replace(/\/$/, '')
+const isBetaBuild = import.meta.env.VITE_BETA_SITE === 'true'
 
 function AdminRoute({ children, minRole = 'admin' }) {
   return <RequireRole minRole={minRole}>{children}</RequireRole>
@@ -83,7 +84,7 @@ export default function App() {
             <ScrollToTop />
             <Navbar />
             <MaintenanceBanner />
-            <CountryOnboarding />
+            {!isBetaBuild ? <CountryOnboarding /> : null}
             <AppErrorBoundary>
               <Suspense fallback={<RouteLoader />}>
                 <Routes>

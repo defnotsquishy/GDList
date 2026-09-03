@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { test } from 'node:test'
 import { TRANSLATIONS, LANGUAGES } from '../src/i18n/translations.js'
 
@@ -27,6 +27,15 @@ test('beta assets and direct-link fallback stay inside /GDList/', () => {
     assert.ok(existsSync(new URL(path.slice('/GDList/'.length), output)), `Missing asset: ${path}`)
   }
   assert.ok(existsSync(new URL('.nojekyll', output)))
+})
+
+test('beta does not require country selection', () => {
+  const assets = new URL('assets/', output)
+  const javascript = readdirSync(assets)
+    .filter(filename => filename.endsWith('.js'))
+    .map(filename => readFileSync(new URL(filename, assets), 'utf8'))
+    .join('\n')
+  assert.doesNotMatch(javascript, /Country victor sync was deferred|country-setup-description/)
 })
 
 test('English and Russian have matching translation keys including the beta notice', () => {
