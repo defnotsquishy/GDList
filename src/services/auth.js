@@ -263,8 +263,8 @@ export async function updateCurrentUserProfile(displayName, photoURL) {
 
 export function getAuthErrorMessage(error) {
   const messages = {
-    'auth/account-exists-with-different-credential': 'An account already exists with this email using a different sign-in method.',
-    'auth/email-already-in-use': 'An account already exists with this email.',
+    'auth/account-exists-with-different-credential': 'An account already exists with this email using a different sign-in method. If this is your email, use "Forgot password" to reclaim it.',
+    'auth/email-already-in-use': 'An account already exists with this email. If it is yours, sign in or use "Forgot password" to reclaim it.',
     'auth/invalid-credential': 'The email or password is incorrect.',
     'auth/invalid-action-code': 'This account link is invalid or has already been used. Request a new one.',
     'auth/invalid-email': 'Enter a valid email address.',

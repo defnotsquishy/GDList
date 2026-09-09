@@ -7,10 +7,16 @@
     (function () {
       var hash = location.hash.substring(1)
       if (hash) {
-        // Resolve the app origin from this file's own location so the redirect
-        // works on every host (Netlify, GitHub Pages, preview URLs, localhost).
+        // Hand the fragment over via sessionStorage (never the query string,
+        // which leaks into history and server logs) and redirect cleanly.
+        try {
+          sessionStorage.setItem('gdlist_discord_hash', hash)
+        } catch (e) {
+          document.body.textContent = 'Session storage is unavailable. Please retry the sync.'
+          return
+        }
         var base = location.origin
-        location.replace(base + '/profile?discord_token=' + encodeURIComponent(hash))
+        location.replace(base + '/profile')
       } else {
         document.body.textContent = 'No token received. You can close this tab.'
       }

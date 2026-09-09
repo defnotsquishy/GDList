@@ -167,6 +167,7 @@ export function buildMissingLevelDoc(aredlRecord, meta) {
       position,
       points,
       victoryCount: 0,
+      victorIds: [],
       victors: [],
       firstCompletedAt: now,
       isActive: true,
@@ -299,9 +300,10 @@ export async function runAredlSync({ userId, aredlProfile, existingCompletions =
       const existingVictors = levelDoc?.victors || []
       if (!existingVictors.some(v => v.userId === userId)) {
         const now = new Date()
-        await updateDocument('levels', gdLevel.id, {
-          victoryCount: (levelDoc?.victoryCount || 0) + 1,
-          victors: [...existingVictors, {
+          await updateDocument('levels', gdLevel.id, {
+            victoryCount: (levelDoc?.victoryCount || 0) + 1,
+            victorIds: [...(levelDoc?.victorIds || existingVictors.map(v => v.userId)), userId],
+            victors: [...existingVictors, {
             userId,
             username: userDoc?.username || userDoc?.displayName || userId.slice(0, 6),
             displayName: userDoc?.displayName || userDoc?.username || 'Player',

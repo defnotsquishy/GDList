@@ -116,7 +116,13 @@ export async function recalcAllUsersPoints() {
       return v
     })
     if (changed) {
-      batch.update(doc(db, 'levels', levelId), { victors: nextVictors })
+      batch.update(doc(db, 'levels', levelId), { victors: nextVictors, victorIds: nextVictors.map(v => v.userId) })
+      snapshotsUpdated += 1
+      pushOp()
+    } else if (!Array.isArray(level.victorIds) || level.victorIds.length !== victors.length) {
+      // Backfill the victorIds mirror required by the security rules so
+      // self-service victor updates work on legacy documents.
+      batch.update(doc(db, 'levels', levelId), { victorIds: victors.map(v => v.userId) })
       snapshotsUpdated += 1
       pushOp()
     }

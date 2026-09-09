@@ -295,6 +295,7 @@ export default function ReviewSubmissions() {
 
         if (sendToActive) {
           levelData.victoryCount = 1
+          levelData.victorIds = [sub.userId]
           levelData.victors = [{
             userId: sub.userId,
             username: submitterName,
@@ -307,6 +308,7 @@ export default function ReviewSubmissions() {
           levelData.firstCompletedAt = now
         } else {
           levelData.victoryCount = 0
+          levelData.victorIds = []
           levelData.victors = []
         }
 
@@ -337,6 +339,7 @@ export default function ReviewSubmissions() {
           })
 
           await updateDocument('levels', levelId, {
+            victorIds: [sub.userId],
             victors: [{
               userId: sub.userId,
               username: submitterName,
@@ -406,6 +409,7 @@ export default function ReviewSubmissions() {
           }
 
           const victors = existing.victors || []
+          const existingVictorIds = existing.victorIds || victors.map(v => v.userId)
           alreadyVictor = victors.some(v => v.userId === sub.userId)
           let newLevelPoints = points || existing.points
           if (!alreadyVictor) {
@@ -415,6 +419,7 @@ export default function ReviewSubmissions() {
               points: newLevelPoints,
               creator: cfg.creator || existing.creator,
               victoryCount: (existing.victoryCount || 0) + 1,
+              victorIds: [...existingVictorIds, sub.userId],
               victors: [...victors, {
                 userId: sub.userId,
                 username: submitterName,
@@ -468,6 +473,7 @@ export default function ReviewSubmissions() {
             gameId: cfg.gameId || sub.demonGameId || '',
             thumbnail: '',
             victoryCount: 1,
+            victorIds: [victorEntry.userId],
             victors: [victorEntry],
             firstCompletedAt: now,
             isActive: true,
@@ -509,7 +515,10 @@ export default function ReviewSubmissions() {
                 ? { ...v, completionId }
                 : v
             )
-            await updateDocument('levels', levelId, { victors: updatedVictor })
+            await updateDocument('levels', levelId, {
+              victorIds: updatedVictor.map(v => v.userId),
+              victors: updatedVictor,
+            })
           }
 
           const userDoc = await getDocument('users', sub.userId)

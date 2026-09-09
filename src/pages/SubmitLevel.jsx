@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BadgeCheck, Send, Tags, Youtube, User, FileText, Video } from 'lucide-react'
 import PageShell from '../components/layout/PageShell'
@@ -12,6 +12,14 @@ import { getCollection, where, createDocument } from '../services/firestore'
 import { isValidVideoUrl } from '../utils/validators'
 import styles from './SubmitLevel.module.css'
 import theme from '../components/layout/ThemedPage.module.css'
+
+function slugKey(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'unknown'
+}
+
+function isPermissionDeniedError(err) {
+  return err?.code === 'permission-denied' || /insufficient permissions|permission denied/i.test(err?.message || '')
+}
 
 export default function SubmitLevel() {
   const { user, loading: authLoading } = useAuth()
@@ -27,6 +35,7 @@ export default function SubmitLevel() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const submittingRef = useRef(false)
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/login')
@@ -53,13 +62,16 @@ export default function SubmitLevel() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (submittingRef.current) return
+    submittingRef.current = true
+    setSubmitting(true)
     setError('')
 
-    if (!levelName.trim()) { setError('Please enter the level name'); return }
-    if (!isValidVideoUrl(videoUrl)) { setError('Please provide a valid video URL (YouTube, Medal, TikTok or Google Drive)'); return }
-    if (!creator.trim()) { setError('Please enter the creator name'); return }
-
     try {
+      if (!levelName.trim()) { setError('Please enter the level name'); return }
+      if (!isValidVideoUrl(videoUrl)) { setError('Please provide a valid video URL (YouTube, Medal, TikTok or Google Drive)'); return }
+      if (!creator.trim()) { setError('Please enter the creator name'); return }
+
       const name = levelName.trim().toLowerCase()
       const existing = await getCollection('levels', [where('type', '==', 'community')])
       if (existing.some(l => (l.name || '').toLowerCase() === name)) {
@@ -75,15 +87,8 @@ export default function SubmitLevel() {
         setError('You already have a pending submission for a level with this name.')
         return
       }
-    } catch (err) {
-      console.error('Duplicate check failed:', err)
-      setError('Could not verify duplicates. Please try again.')
-      return
-    }
 
-    setSubmitting(true)
-    try {
-      await createDocument('submissions', null, {
+      const data = {
         userId: user.uid,
         requestType: 'level',
         levelType: 'community',
@@ -98,7 +103,34 @@ export default function SubmitLevel() {
         reviewNote: '',
         reviewedBy: null,
         reviewedAt: null,
-      })
+      }
+
+      // Deterministic id — same idea as SubmitRecord: the same player
+      // submitting a level with the same name twice always maps to one
+      // document, so double submits can never create two queue entries.
+      const baseId = `sub_${user.uid}_lvl_${slugKey(levelName)}`
+
+      let ambiguous = false
+      try {
+        const existingSub = await getDocument('submissions', baseId)
+        if (existingSub) {
+          setError('You already have a pending submission for a level with this name.')
+          return
+        }
+      } catch {
+        ambiguous = true
+      }
+
+      try {
+        await createDocument('submissions', baseId, data)
+      } catch (err) {
+        if (!isPermissionDeniedError(err)) throw err
+        setError(ambiguous
+          ? 'You already have a submission for a level with this name that is being reviewed.'
+          : 'You already have a pending submission for a level with this name.')
+        return
+      }
+
       setSuccess(true)
       setLevelName('')
       setVideoUrl('')
@@ -110,6 +142,7 @@ export default function SubmitLevel() {
     } catch (err) {
       setError(err.message)
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }

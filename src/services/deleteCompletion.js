@@ -2,7 +2,6 @@ import { doc, writeBatch } from 'firebase/firestore'
 import { db } from './firebase'
 import { getDocument } from './firestore'
 import { communityPoints, roundPoints } from '../utils/communityPoints'
-import { recalculateCommunityScores } from './communityList'
 
 export async function deleteCompletionRecord(completionId) {
   const completion = await getDocument('completions', completionId)
@@ -25,6 +24,7 @@ export async function deleteCompletionRecord(completionId) {
 
     const update = {
       victors: newVictors,
+      victorIds: newVictors.map(v => v.userId),
       victoryCount: Math.max(0, (level.victoryCount || 0) - removedCount),
     }
     if (completion.levelType === 'community' && newVictors.length === 0) {
@@ -49,9 +49,8 @@ export async function deleteCompletionRecord(completionId) {
     })
   }
 
+  // No community-wide recalc needed: removing one completion only changes the
+  // owner's own totals (already handled above) and never level positions.
   await batch.commit()
-  if (completion.levelType === 'community' && level) {
-    await recalculateCommunityScores()
-  }
   return { removedPoints }
 }

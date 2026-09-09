@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, Link, useSearchParams } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Edit3, Save, X, Send, Shield, Youtube, Trash2, AlertTriangle, Crown, KeyRound, MailCheck, Share2, RefreshCw } from 'lucide-react'
 import PageShell from '../components/layout/PageShell'
@@ -21,7 +21,6 @@ import { getDisplayName, formatNumber, formatDate } from '../utils/format'
 import { COUNTRIES, getFlagUrl } from '../utils/countries'
 import { deleteAccount } from '../services/deleteAccount'
 import { deleteCompletionRecord } from '../services/deleteCompletion'
-import { syncVictorsSnapshot } from '../services/syncUsernames'
 import {
   changePassword,
   getAuthErrorMessage,
@@ -32,7 +31,7 @@ import {
 } from '../services/auth'
 import Modal from '../components/ui/Modal'
 import SyncListModal from '../components/profile/SyncListModal'
-import { completeDiscordLogin, hasPendingDiscordLogin, clearPendingDiscordLogin, getStoredDiscordUser } from '../services/discordAuth'
+import { completeDiscordLogin, hasPendingDiscordLogin, clearPendingDiscordLogin, getStoredDiscordUser, DISCORD_HASH_KEY } from '../services/discordAuth'
 import { fetchAredlProfileByDiscordId, runAredlSync } from '../services/syncAredl'
 import { getGdlProfileUrl } from '../services/syncGdl'
 
@@ -79,7 +78,6 @@ export default function MyProfile() {
   const [completionDeleting, setCompletionDeleting] = useState(false)
   const [completionDeleteError, setCompletionDeleteError] = useState('')
   const [syncingAredl, setSyncingAredl] = useState(false)
-  const [searchParams, setSearchParams] = useSearchParams()
 
   const { shareProfile, shareStatus } = useShareProfile(
     getDisplayName(userData),
@@ -96,7 +94,8 @@ export default function MyProfile() {
   }, [userData])
 
   useEffect(() => {
-    const tokenHash = searchParams.get('discord_token')
+    let tokenHash = null
+    try { tokenHash = sessionStorage.getItem(DISCORD_HASH_KEY) } catch {}
     // Wait for both the auth session and the profile document to be ready,
     // otherwise userData can be null while we build the victor snapshot.
     if (!tokenHash || !user || !userData) return
@@ -104,8 +103,8 @@ export default function MyProfile() {
     const finishDiscord = async () => {
       setSyncingAredl(true)
       try {
+        try { sessionStorage.removeItem(DISCORD_HASH_KEY) } catch {}
         const discordUser = await completeDiscordLogin(tokenHash)
-        setSearchParams({}, { replace: true })
 
         const aredlProfile = await fetchAredlProfileByDiscordId(discordUser.id)
         if (!aredlProfile) {
@@ -154,7 +153,7 @@ export default function MyProfile() {
     }
     finishDiscord()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, user, userData])
+  }, [user, userData])
 
   const handleUnsyncAredl = async () => {
     if (!user) return
@@ -252,11 +251,6 @@ export default function MyProfile() {
         country: country,
       })
       saveRepresentedCountry(country)
-      try {
-        await syncVictorsSnapshot(user.uid, { username: displayName.trim(), displayName: displayName.trim(), country, avatarURL: avatarURL.trim() || '' })
-      } catch (syncErr) {
-        console.warn('Victors name sync failed:', syncErr)
-      }
       await refreshUserData()
       setEditing(false)
       setProfileMessage('Profile updated successfully.')

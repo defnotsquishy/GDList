@@ -4,7 +4,6 @@ import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { updateDocument } from '../../services/firestore'
 import { invalidateCache } from '../../services/readCache'
-import { syncVictorsSnapshot } from '../../services/syncUsernames'
 import { COUNTRIES, getFlagUrl } from '../../utils/countries'
 import {
   getSavedRepresentedCountry,
@@ -43,16 +42,6 @@ export default function CountryOnboarding() {
     if (!user || !userData) return
     await updateDocument('users', user.uid, { country: code })
     invalidateCache('users')
-    try {
-      await syncVictorsSnapshot(user.uid, {
-        username: userData.username || '',
-        displayName: userData.displayName || userData.username || '',
-        country: code,
-        avatarURL: userData.avatarURL || '',
-      })
-    } catch (syncError) {
-      console.warn('Country victor sync was deferred:', syncError)
-    }
   }, [user, userData])
 
   useEffect(() => {

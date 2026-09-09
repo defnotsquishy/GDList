@@ -2,7 +2,6 @@ import { deleteUser } from 'firebase/auth'
 import { where, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import { getCollection, getDocument } from './firestore'
-import { recalculateCommunityScores } from './communityList'
 
 export async function deleteAccount(userId) {
   const results = { submissions: 0, completions: 0, notifications: 0, levels: 0, usernames: 0, staff: 0 }
@@ -47,14 +46,18 @@ export async function deleteAccount(userId) {
     const allLevels = await getCollection('levels')
     const affectedLevels = allLevels.filter(l => (l.victors || []).some(v => v.userId === userId))
     for (const level of affectedLevels) {
-      await updateDoc(doc(db, 'levels', level.id), {
-        victors: (level.victors || []).filter(v => v.userId !== userId),
+      const remainingVictors = (level.victors || []).filter(v => v.userId !== userId)
+      const update = {
+        victors: remainingVictors,
+        victorIds: remainingVictors.map(v => v.userId),
         victoryCount: Math.max(0, (level.victoryCount || 0) - 1),
-      })
+      }
+      if (level.type === 'community' && remainingVictors.length === 0) {
+        update.position = 0
+        update.points = 0
+      }
+      await updateDoc(doc(db, 'levels', level.id), update)
       results.levels++
-    }
-    if (affectedLevels.some(level => level.type === 'community')) {
-      await recalculateCommunityScores()
     }
   } catch (e) { errors.push(`levels: ${e.message}`) }
 

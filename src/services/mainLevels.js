@@ -163,6 +163,7 @@ export async function promoteCommunityLevelToMain(communityId, { position, point
     position: mainPosition,
     points: mainPoints,
     victoryCount: victors.length,
+    victorIds: victors.map(v => v.userId),
     victors,
     firstCompletedAt: now,
     isActive: true,
@@ -218,6 +219,7 @@ export async function mirrorCompletionToLinked({
   }
   await updateDocument('levels', linkedId, {
     victoryCount: (target.victoryCount || 0) + 1,
+    victorIds: [...(target.victorIds || (target.victors || []).map(v => v.userId)), userId],
     victors: [...(target.victors || []), {
       userId,
       username: username || displayName || 'Player',

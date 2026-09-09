@@ -132,6 +132,7 @@ export default function ManageLevels() {
             videoURL: form.videoURL,
             isActive: true,
             victoryCount: 0,
+            victorIds: [],
             victors: [],
             tags: form.tags,
             thumbnail: '',

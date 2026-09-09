@@ -14,6 +14,10 @@ const DISCORD_API = 'https://discord.com/api/v10'
 const STORAGE_KEY = 'gdlist_discord_user'
 const PENDING_KEY = 'gdlist_discord_pending'
 
+// The OAuth token is handed over via sessionStorage instead of the URL so it
+// never leaks into browser history, referrer headers, or server logs.
+export const DISCORD_HASH_KEY = 'gdlist_discord_hash'
+
 export function getStoredDiscordUser() {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY)

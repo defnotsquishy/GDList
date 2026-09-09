@@ -55,6 +55,68 @@ service cloud.firestore {
       ]);
     }
 
+    // Levels keep `victors` (snapshot objects) in lockstep with `victorIds`
+    // (plain list of uids). Rules cannot iterate objects, so the uid list is
+    // what lets non-admins prove they only added/removed THEIR OWN entry.
+    function victorIdsOf(data) {
+      return data.get('victorIds', []);
+    }
+
+    function victorsInLockstep(data) {
+      return victorIdsOf(data).size() == data.get('victors', []).size();
+    }
+
+    function coreVictorFieldsOnly(before, after) {
+      return after.diff(before).affectedKeys()
+        .hasOnly(['victors', 'victorIds', 'victoryCount', 'updatedAt']);
+    }
+
+    function victorFieldsOnly(before, after) {
+      return after.diff(before).affectedKeys()
+        .hasOnly(['victors', 'victorIds', 'victoryCount', 'position', 'points', 'updatedAt']);
+    }
+
+    // Non-admin append: exactly one uid added and it must be the caller's.
+    // Every pre-existing victor object must survive untouched and the new
+    // (last) object must belong to the caller.
+    function addsOwnVictorOnly(before, after) {
+      return coreVictorFieldsOnly(before, after)
+        && victorsInLockstep(before)
+        && victorsInLockstep(after)
+        && after.get('victors', []).size() == before.get('victors', []).size() + 1
+        && victorIdsOf(after).size() == victorIdsOf(before).size() + 1
+        && victorIdsOf(after).hasAll(victorIdsOf(before))
+        && victorIdsOf(after).hasOnly(victorIdsOf(before).concat([request.auth.uid]))
+        && !victorIdsOf(before).hasAny([request.auth.uid])
+        && after.get('victoryCount', 0) == before.get('victoryCount', 0) + 1
+        && after.get('victors', []).hasAll(before.get('victors', []))
+        && after.get('victors', [])[after.get('victors', []).size() - 1].get('userId', '') == request.auth.uid;
+    }
+
+    // Non-admin removal: every remaining uid existed before, the caller's uid
+    // is fully gone, and only caller-owned entries disappeared. Survivor
+    // objects must be byte-identical. Community levels may reset
+    // position/points once they lose their last victor.
+    function removesOwnVictorsOnly(before, after) {
+      let removedCount = before.get('victors', []).size() - after.get('victors', []).size();
+      return victorFieldsOnly(before, after)
+        && victorsInLockstep(before)
+        && victorsInLockstep(after)
+        && removedCount > 0
+        && victorIdsOf(after).hasOnly(victorIdsOf(before))
+        && victorIdsOf(before).hasOnly(victorIdsOf(after).concat([request.auth.uid]))
+        && !victorIdsOf(after).hasAny([request.auth.uid])
+        && before.get('victors', []).hasAll(after.get('victors', []))
+        && (after.get('victoryCount', 0) == before.get('victoryCount', 0) - removedCount
+          || (before.get('victoryCount', 0) < removedCount && after.get('victoryCount', 0) == 0))
+        && (after.get('victors', []).size() > 0
+          ? (after.get('position', 0) == before.get('position', 0)
+            && after.get('points', 0) == before.get('points', 0))
+          : (after.get('position', 0) == 0
+            && after.get('points', 0) == 0
+            && before.get('type', '') == 'community'));
+    }
+
     match /users/{userId} {
       allow read: if true;
 
@@ -75,6 +137,9 @@ service cloud.firestore {
         && existsAfter(/databases/$(database)/documents/usernames/$(request.resource.data.usernameLower))
         && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.usernameLower)).data.uid == userId;
 
+      // Role/ban/developer changes are owner-only. Stats are admin-only or
+      // self-decrements only (a user can never raise their own points).
+      // Profile fields and sync stamps are self-service.
       allow update: if (isOwner()
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['role', 'updatedAt'])
@@ -88,16 +153,20 @@ service cloud.firestore {
             .hasOnly(['isDeveloper', 'updatedAt'])
           && request.resource.data.isDeveloper is bool)
         || (isAdmin()
-           && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['stats', 'updatedAt']))
-        // Community score recalculation currently runs from the signed-in
-        // client. Keep that legacy stats-only path without exposing roles.
-        || (activeAccount()
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['stats', 'updatedAt']))
         || (isSelf(userId) && activeAccount()
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['stats', 'updatedAt'])
+          && request.resource.data.stats.totalPoints <= resource.data.stats.totalPoints
+          && request.resource.data.stats.mainPoints <= resource.data.stats.mainPoints
+          && request.resource.data.stats.communityPoints <= resource.data.stats.communityPoints
+          && request.resource.data.stats.mainCompletions <= resource.data.stats.mainCompletions
+          && request.resource.data.stats.communityCompletions <= resource.data.stats.communityCompletions)
+        || (isSelf(userId) && activeAccount()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'displayName', 'avatarURL', 'bio', 'country', 'updatedAt'
+            'displayName', 'avatarURL', 'bio', 'country',
+            'aredlSync', 'gdlSync', 'pointercrateSync', 'updatedAt'
           ]));
 
       allow delete: if isSelf(userId) || isOwner();
@@ -117,19 +186,46 @@ service cloud.firestore {
 
     match /staff/{userId} {
       allow read: if true;
-      allow create, update, delete: if signedIn();
+      allow create, update: if isOwner();
+      allow delete: if isOwner() || (signedIn() && resource.data.uid == request.auth.uid);
     }
 
     match /levels/{levelId} {
       allow read: if true;
-      allow write: if signedIn();
+
+      // Regular users may only auto-create placeholder docs during the AREDL
+      // sync; every other create is an admin action.
+      allow create: if isAdmin()
+        || (signedIn()
+          && request.resource.data.type == 'main'
+          && request.resource.data.autoCreated == true
+          && request.resource.data.createdVia == 'aredl_sync');
+
+      allow update: if isAdmin()
+        || addsOwnVictorOnly(resource.data, request.resource.data)
+        || removesOwnVictorsOnly(resource.data, request.resource.data);
+
+      allow delete: if isAdmin();
     }
 
     match /completions/{completionId} {
       allow read: if true;
-      allow create, update: if signedIn()
-        && hasNoReviewerIdentity(request.resource.data);
-      allow delete: if signedIn();
+
+      // Users may only write records attributed to themselves; admins may
+      // create completions on behalf of submitters during review.
+      allow create: if isAdmin()
+        || (signedIn()
+          && request.resource.data.userId == request.auth.uid
+          && hasNoReviewerIdentity(request.resource.data));
+
+      allow update: if isAdmin()
+        || (signedIn()
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && hasNoReviewerIdentity(request.resource.data));
+
+      allow delete: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
     }
 
     match /submissions/{submissionId} {
@@ -149,7 +245,7 @@ service cloud.firestore {
 
       // Enforce the review state machine. Claims and final attribution must
       // always belong to the authenticated admin performing the transition.
-      allow update: if isAdmin()
+      allow update: if (isAdmin()
         && request.resource.data.userId == resource.data.userId
         && (
           (resource.data.status == 'pending'
@@ -188,14 +284,30 @@ service cloud.firestore {
             && request.resource.data.status == resource.data.status
             && reviewIdentityUnchanged(resource.data, request.resource.data)
             && claimIdentityUnchanged(resource.data, request.resource.data))
-        );
+        ))
+        // A player may reopen their own rejected submission in place (e.g.
+        // with a fresh video). Deterministic submission ids make this the only
+        // way to retry after a rejection; it is equivalent to creating a new
+        // submission, which they could do anyway.
+        || (verifiedAccount()
+          && isSelf(resource.data.userId)
+          && resource.data.status == 'rejected'
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.status == 'pending'
+          && request.resource.data.reviewedBy == null
+          && request.resource.data.reviewedAt == null
+          && !request.resource.data.keys().hasAny([
+            'reviewerName', 'reviewClaimedBy', 'reviewClaimedAt'
+          ]));
 
       allow delete: if isAdmin()
         || (isSelf(resource.data.userId) && resource.data.status == 'pending');
     }
 
     match /notifications/{notificationId} {
-      allow create: if signedIn();
+      // Only admins create notifications (submission outcomes), so users
+      // cannot spam other accounts.
+      allow create: if isAdmin() && request.resource.data.userId is string;
       allow read: if signedIn() && resource.data.userId == request.auth.uid;
       allow update: if signedIn()
         && resource.data.userId == request.auth.uid
@@ -208,23 +320,24 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.reporterId == request.auth.uid
         && request.resource.data.status == 'open';
-      allow read: if true;
-      allow update, delete: if signedIn();
+      // Report content may contain PII and proof links; owner-eye only, the
+      // same threshold the ManageReports page enforces.
+      allow read, update, delete: if isOwner();
     }
 
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if signedIn();
+      allow write: if isAdmin();
     }
 
     match /tags/{tagId} {
       allow read: if true;
-      allow write: if signedIn();
+      allow write: if isAdmin();
     }
 
     match /changelog/{entryId} {
       allow read: if true;
-      allow write: if signedIn();
+      allow write: if isAdmin();
     }
 
     match /{document=**} {

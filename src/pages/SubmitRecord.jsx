@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Youtube, Send, ExternalLink, FileCheck2, ShieldCheck, Video } from 'lucide-react'
 import PageShell from '../components/layout/PageShell'
@@ -16,6 +16,14 @@ import { findMainLevelByName } from '../services/mainLevels'
 import { isValidVideoUrl } from '../utils/validators'
 import styles from './SubmitRecord.module.css'
 import theme from '../components/layout/ThemedPage.module.css'
+
+function slugKey(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'unknown'
+}
+
+function isPermissionDeniedError(err) {
+  return err?.code === 'permission-denied' || /insufficient permissions|permission denied/i.test(err?.message || '')
+}
 
 export default function SubmitRecord() {
   const { user, loading: authLoading } = useAuth()
@@ -35,6 +43,7 @@ export default function SubmitRecord() {
   const [externalUrl, setExternalUrl] = useState('')
   const [gameId, setGameId] = useState('')
   const [sourceInfo, setSourceInfo] = useState(null)
+  const submittingRef = useRef(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -166,30 +175,33 @@ export default function SubmitRecord() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (submittingRef.current) return
+    submittingRef.current = true
+    setSubmitting(true)
     setError('')
 
-    if (!manualMode && levelType === 'main' && !selectedDemon) {
-      setError('Please select a level')
-      return
-    }
-    if (!manualMode && levelType === 'community' && !selectedDemon) {
-      setError('Please select a level')
-      return
-    }
-    if (manualMode && !manualLevelName.trim()) {
-      setError('Please enter the level name')
-      return
-    }
-    if (!isValidVideoUrl(videoUrl)) {
-      setError('Please provide a valid video URL (YouTube, Medal, TikTok or Google Drive)')
-      return
-    }
-    if (externalUrl && !isValidExternalUrl(externalUrl)) {
-      setError('Link must be from demonlist.org')
-      return
-    }
-
     try {
+      if (!manualMode && levelType === 'main' && !selectedDemon) {
+        setError('Please select a level')
+        return
+      }
+      if (!manualMode && levelType === 'community' && !selectedDemon) {
+        setError('Please select a level')
+        return
+      }
+      if (manualMode && !manualLevelName.trim()) {
+        setError('Please enter the level name')
+        return
+      }
+      if (!isValidVideoUrl(videoUrl)) {
+        setError('Please provide a valid video URL (YouTube, Medal, TikTok or Google Drive)')
+        return
+      }
+      if (externalUrl && !isValidExternalUrl(externalUrl)) {
+        setError('Link must be from demonlist.org')
+        return
+      }
+
       const dup = await findDuplicate()
       if (dup) {
         setError(dup.completed
@@ -197,14 +209,7 @@ export default function SubmitRecord() {
           : 'You already have a pending submission for this level.')
         return
       }
-    } catch (err) {
-      console.error('Duplicate check failed:', err)
-      setError('Could not verify duplicates. Please try again.')
-      return
-    }
 
-    setSubmitting(true)
-    try {
       const data = {
         userId: user.uid,
         levelType,
@@ -231,7 +236,38 @@ export default function SubmitRecord() {
         if (gameId.trim()) data.gameId = gameId.trim()
       }
 
-      await createDocument('submissions', null, data)
+      // Deterministic id: the same player submitting the same level twice
+      // (double click, second tab, other device) lands on the SAME document,
+      // so only one submission can ever exist. An id the player cannot read
+      // means the submission is either under review or was rejected; the
+      // rules let the owner reopen a rejected one in place and deny the rest.
+      const baseId = manualMode
+        ? `sub_${user.uid}_rec_manual_${slugKey(manualLevelName)}`
+        : levelType === 'main'
+          ? `sub_${user.uid}_rec_main_${slugKey(selectedDemon?.id)}`
+          : `sub_${user.uid}_rec_com_${slugKey(selectedDemon)}`
+
+      let ambiguous = false
+      try {
+        const existing = await getDocument('submissions', baseId)
+        if (existing) {
+          setError('You already have a pending submission for this level.')
+          return
+        }
+      } catch {
+        ambiguous = true
+      }
+
+      try {
+        await createDocument('submissions', baseId, data)
+      } catch (err) {
+        if (!isPermissionDeniedError(err)) throw err
+        setError(ambiguous
+          ? 'You already have a submission for this level that is being reviewed.'
+          : 'You already have a pending submission for this level.')
+        return
+      }
+
       setSuccess(true)
       setSelectedDemon(null)
       setVideoUrl('')
@@ -242,6 +278,7 @@ export default function SubmitRecord() {
     } catch (err) {
       setError(err?.message || 'Submission failed. Please try again.')
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
