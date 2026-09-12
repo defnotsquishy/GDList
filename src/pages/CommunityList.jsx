@@ -103,7 +103,6 @@ export default function CommunityList() {
     { value: 'hardest', label: t('list.sortHardest') },
     { value: 'easiest', label: t('list.sortEasiest') },
     { value: 'beaten', label: t('list.sortBeaten') },
-    { value: 'popular', label: t('list.sortPopular') },
   ]
 
   const toggleTag = (id) => {
