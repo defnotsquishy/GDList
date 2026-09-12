@@ -7,12 +7,14 @@ import Badge from '../components/ui/Badge'
 import SearchBar from '../components/ui/SearchBar'
 import Spinner from '../components/ui/Spinner'
 import Button from '../components/ui/Button'
+import Select from '../components/ui/Select'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import { loadMainLevels } from '../services/readCache'
 import { getGlobalLevelArtworkIndex } from '../services/globalDemonList'
 import { formatNumber } from '../utils/format'
 import { DIFFICULTY_COLORS } from '../utils/constants'
+import { sortLevels } from '../utils/levelSorting'
 import styles from './List.module.css'
 
 export default function MainList() {
@@ -23,6 +25,7 @@ export default function MainList() {
   const [loadError, setLoadError] = useState('')
   const [retryKey, setRetryKey] = useState(0)
   const [search, setSearch] = useState('')
+  const [sort, setSort] = useState('hardest')
 
   useEffect(() => {
     async function load() {
@@ -56,12 +59,19 @@ export default function MainList() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return levels
-    return levels.filter(l =>
+    const matching = !q ? levels : levels.filter(l =>
       l.name?.toLowerCase().includes(q) ||
       l.creator?.toLowerCase().includes(q)
     )
-  }, [levels, search])
+    return sortLevels(matching, sort)
+  }, [levels, search, sort])
+
+  const sortOptions = [
+    { value: 'hardest', label: t('list.sortHardest') },
+    { value: 'easiest', label: t('list.sortEasiest') },
+    { value: 'beaten', label: t('list.sortBeaten') },
+    { value: 'popular', label: t('list.sortPopular') },
+  ]
 
   const diffColor = (diff) => DIFFICULTY_COLORS[diff?.toLowerCase()] || '#ffffff'
   const totalVictories = useMemo(
@@ -123,6 +133,14 @@ export default function MainList() {
             onChange={setSearch}
             placeholder={t('list.searchLevel')}
             className={styles.searchBar}
+          />
+          <Select
+            label={t('list.sortBy')}
+            options={sortOptions}
+            value={sort}
+            onChange={event => setSort(event.target.value)}
+            className={styles.sortSelect}
+            aria-label={t('list.sortBy')}
           />
         </div>
 
